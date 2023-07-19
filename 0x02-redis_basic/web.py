@@ -1,44 +1,32 @@
 #!/usr/bin/env python3
-"""web cache and tracker """
+""" Redis Module Cache and tracking """
 
 from functools import wraps
-from typing import Callable
-
 import redis
 import requests
-from requests import Response
+from typing import Callable
 
-_redis = redis.Redis()
-_redis.flushdb()
+redis_ = redis.Redis()
 
 
-def counter(method: Callable) -> Callable:
-    """
-    a counter decorator that counts how many times a particular URL was
-    accessed. The value is cached in Redis and will expire after 10 seconds
-    """
-
+def count_requests(method: Callable) -> Callable:
+    """ Decortator for counting """
     @wraps(method)
-    def wrapper(url):
-        """
-        wrapper function
-        """
-        _redis.incr(f"count:{url}")
-
-        html = _redis.get(f"cached:{url}")
-        if html is not None:
-            return html.decode("utf-8")
+    def wrapper(url):  # sourcery skip: use-named-expression
+        """ Wrapper for decorator """
+        redis_.incr(f"count:{url}")
+        cached_html = redis_.get(f"cached:{url}")
+        if cached_html:
+            return cached_html.decode('utf-8')
         html = method(url)
-        _redis.setex(f"cached:{url}", 10, html)
+        redis_.setex(f"cached:{url}", 10, html)
         return html
 
     return wrapper
 
 
-@counter
+@count_requests
 def get_page(url: str) -> str:
-    """
-    a function that returns the HTML content of a particular URL
-    """
-    response: Response = requests.get(url)
-    return response.text
+    """ Obtain the HTML content of a  URL """
+    req = requests.get(url)
+    return req.text
